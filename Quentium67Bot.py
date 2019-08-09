@@ -4,13 +4,18 @@ from discord.ext import commands
 from datetime import datetime
 from bs4 import BeautifulSoup
 
-with open("extra/CONFIG.json", "r") as file:
+open("extra/data.txt", "a+", encoding="utf-8").close()
+open("extra/logs.txt", "a+", encoding="utf-8").close()
+
+with open("extra/CONFIG.json", "r", encoding="utf-8") as file:
     config = json.load(file)
 
-with open("extra/prefixes.json", "r") as file:
-    prefixes = json.load(file)
+with open("extra/triggers.json", "r", encoding="utf-8") as file:
+    triggers = json.load(file)
 
 def get_prefix(bot, message):
+    with open("extra/prefixes.json", "r", encoding="utf-8") as file:
+        prefixes = json.load(file)
     if not message.guild:
         return "+"
     if prefixes.get(str(message.guild.id)):
@@ -42,39 +47,36 @@ async def on_ready():
 #----------------------------- SETUP GLOBAL FUNCTIONS AND GLOBAL EVENTS -----------------------------#
 
 async def async_data(server_id1, server_name1):
-    global lang_server, commands_server, autorole_server
+    global commands_server
     with open("extra/data.txt", encoding="utf-8") as file:
         def unknown_server():
             global lang_server, commands_server, autorole_server
             lang_server = "fr"
             commands_server = 1
             autorole_server = "@everyone"
-            file = open("extra/data.txt", "a", encoding="utf-8")
-            infos = [server_id1, server_name1, lang_server, commands_server, autorole_server]
-            file.write(sep.join(map(str, infos)) + "\n")
-            file.close()
+            with open("extra/data.txt", "a", encoding="utf-8") as file:
+                infos = [server_id1, server_name1, lang_server, commands_server, autorole_server]
+                file.write(sep.join(map(str, infos)) + "\n")
         if os.stat("extra/data.txt").st_size == 0:
             unknown_server()
         else:
             for line in file:
                 if str(server_id1) in line:
                     clean_line = line.rstrip().split(sep, 999)
-                    lang_server = clean_line[2]
                     clean_line[3] = str(int(clean_line[3]) + 1)
                     commands_server = clean_line[3]
-                    autorole_server = clean_line[4]
                     with open("extra/data.txt", "r", encoding="utf-8") as file:
                         filedata = file.read()
                     filedata = filedata.replace(str(line), str(sep.join(clean_line) + "\n"))
-                    with open("extra/data.txt", "w", encoding="utf-8") as file2:
-                        file2.write(filedata)
+                    with open("extra/data.txt", "w", encoding="utf-8") as file:
+                        file.write(filedata)
                     not_id = False
                     break
                 else:
                     not_id = True
             if not_id:
                 unknown_server()
-    return lang_server, commands_server, autorole_server
+    return commands_server
 
 async def async_weather(args):
     global embed
@@ -139,7 +141,8 @@ async def async_command(args, msg):
     if args == "runpc":
         await msg.delete()
         content = emo("pc1") + " Quentium PC\n" + emo("pc2") + " Office PC\n" + emo("pc3") + " Space PC"
-        msg = await msg_channel.send(embed=discord.Embed(title=emo("vote") + " Choisissez un ordinateur à démarrer :", description=content, color=0x000000))
+        embed = discord.Embed(title=emo("vote") + " Choisissez un ordinateur à démarrer :", description=content, color=0x000000)
+        msg = await msg_channel.send(embed=embed)
         for item in ["pc1", "pc2", "pc3"]:
             emo = discord.utils.get(client.emojis, name=item)
             await msg.add_reaction(emo)
@@ -147,11 +150,12 @@ async def async_command(args, msg):
     elif args == "setco":
         await msg.delete()
         content = emo("co1") + " ON 19H\n" + emo("co2") + " ON 22H\n" + emo("co3") + " OFF 19H\n" + emo("co4") + " OFF 22H"
-        msg = await msg_channel.send(embed=discord.Embed(title=emo("vote") + " Choisissez une action à réaliser pour la connexion :", description=content, color=0x000000))
+        embed = discord.Embed(title=emo("vote") + " Choisissez une action à réaliser pour la connexion :", description=content, color=0x000000)
+        msg = await msg_channel.send(embed=embed)
         for item in ["co1", "co2", "co3", "co4"]:
             emo = discord.utils.get(client.emojis, name=item)
             await msg.add_reaction(emo)
-        return None    
+        return None
     elif "ping" in args:
         return await msg_class.delete()
     try:
@@ -168,12 +172,23 @@ async def async_command(args, msg):
 
 @client.listen()
 async def on_message(message):
+    global triggers
+    try:server_id = message.guild.id
+    except:server_id = None
+
     if client.user.mention == message.content.replace("!", ""):
         if str(message.guild.id) in prefixes.keys():
             pre = prefixes[str(message.guild.id)]
             return await message.channel.send(f"Le préfixe du bot est `{pre}`. Utilisez la commande `{pre}help` pour la liste des commandes.")
         else:
             return await message.channel.send("Le préfixe du bot est `+`. Utilisez la commande `+help` pour la liste des commandes.")
+
+    if any(x == str(server_id) for x in triggers.keys()):
+        with open("extra/triggers.json", "r", encoding="utf-8") as file:
+            triggers = json.load(file)
+        if any(x == message.content.lower() for x in triggers[str(server_id)].keys()):
+            response = triggers[str(server_id)].get(message.content.lower())
+            return await message.channel.send(response)
 
 @asyncio.coroutine
 async def loop_repeat():
@@ -233,7 +248,7 @@ except:
 @client.event
 async def on_reaction_add(reaction, user):
     if user.id == 246943045105221633: # Quentium user ID
-        if not len(reaction.message.embeds) == 0:
+        try:
             if "<:vote:509442482141003776> Choisissez" in reaction.message.embeds[0].title:
                 await reaction.message.remove_reaction(reaction.emoji, user)
                 if "ordinateur" in reaction.message.embeds[0].title:
@@ -280,6 +295,8 @@ async def on_reaction_add(reaction, user):
                             return await tmp.delete()
                         except:
                             return await msg_channel.send("Le site n'a pas pu répondre (No route to host)")
+        except:
+            pass
 
 @client.event
 async def on_member_join(member):
@@ -331,6 +348,8 @@ async def on_command_error(ctx, error):
     if "is not found" in str(error):
         return False
     elif "FORBIDDEN (status code: 403): Missing Permissions" in str(error):
+        return await ctx.send(":x: Il manque certaines permissions au bot.")
+    elif "FORBIDDEN (error code: 50013): Missing Permissions" in str(error):
         return await ctx.send(":x: Il manque certaines permissions au bot.")
     elif "FORBIDDEN (status code: 403): Missing Access" in str(error):
         return await ctx.send(":x: Il manque certains accès au bot.")
@@ -420,8 +439,8 @@ async def prefix(ctx, *, args=None):
         await async_data(server_id, server_name)
 
     def update_prefix():
-        with open("extra/prefixes.json", "w") as json_file:
-            json.dump(prefixes, json_file, indent=4)
+        with open("extra/prefixes.json", "w", encoding="utf-8") as file:
+            json.dump(prefixes, file, indent=4)
             client.command_prefix = get_prefix(client, ctx.message)
 
     if not ctx.message.author.guild_permissions.administrator:
@@ -578,7 +597,7 @@ async def embed(ctx, *, args=None):
     if not args:
         return await ctx.send("Merci de préciser un argument valide : `+embed T=Titre D=Description C=Couleur I=ImageURL F=Footer U=URL A=Auteur`.")
 
-    with open("extra/colors_embed.json") as file:
+    with open("extra/colors_embed.json", encoding="utf-8") as file:
         colors_embed = json.load(file)
 
     content = re.split(".=", args)[1:]
@@ -633,7 +652,7 @@ async def embed(ctx, *, args=None):
 @client.command(pass_context=True, aliases=["listebans", "banlist"])
 async def listbans(ctx):
     if isinstance(ctx.channel, discord.TextChannel):
-        global lang_server, commands_server, autorole_server, server_id, server_name
+        global server_id, server_name
         server_id = ctx.message.guild.id
         server_name = ctx.message.guild.name
         await async_data(server_id, server_name)
@@ -862,6 +881,7 @@ async def userstats(ctx, *, member : discord.Member=None):
         server_id = ctx.message.guild.id
         server_name = ctx.message.guild.name
         await async_data(server_id, server_name)
+
     if not member:
         member = ctx.message.author
     user_name = member.name
@@ -922,8 +942,6 @@ async def botstats(ctx):
         server_id = ctx.message.guild.id
         server_name = ctx.message.guild.name
         await async_data(server_id, server_name)
-    else:
-        global start_time, commands_server
 
     bot_host = "Raspberry Pi"
     bot_owner = "QuentiumYT#0207"
@@ -1121,6 +1139,8 @@ async def minecraft(ctx, * , omg_id=None):
         await async_data(server_id, server_name)
 
     # 22915
+    if ctx.message.author.id == 247775235913285632: # SpaceDragon user ID
+        omg_id = "236885"
     if not omg_id:
         return await ctx.send("Veuillez renseigner l'id de vôtre server OMGServ.")
     if not omg_id.isdigit():
@@ -1185,10 +1205,11 @@ async def dtmine(ctx, *, args=None):
 
     if not args:
         return await ctx.send("Il faut spécifier au moins un minerais.")
-    with open("extra/aliases_dt.json", "r") as aliases_dt:
-        aliases_dt = json.load(aliases_dt)
-    with open("extra/mines_dt.json", "r") as mines_dt:
-        mines = json.load(mines_dt)
+    args = args.lower()
+    with open("extra/aliases_dt.json", "r", encoding="utf-8") as file:
+        aliases_dt = json.load(file)
+    with open("extra/mines_dt.json", "r", encoding="utf-8") as file:
+        mines = json.load(file)
 
     try:args = aliases_dt[args]
     except:pass
@@ -1216,6 +1237,95 @@ async def dtmine(ctx, *, args=None):
         i += 1
     text += "```"
     return await ctx.send(text)
+
+@client.command(pass_context=True, aliases=["triggers", "reaction", "customreaction", "customtrigger"])
+async def trigger(ctx, *, args=None):
+    if isinstance(ctx.channel, discord.TextChannel):
+        global server_id, server_name
+        server_id = ctx.message.guild.id
+        server_name = ctx.message.guild.name
+        await async_data(server_id, server_name)
+
+    global triggers
+    if not ctx.message.author.guild_permissions.administrator:
+        if any(x in args.lower() for x in ["list", "liste"]):
+            if any(x == str(server_id) for x in triggers.keys()) and triggers[str(server_id)]:
+                content = "\n- ".join([x for x in triggers[str(server_id)].keys()])
+                embed = discord.Embed(title=f"Réactions customisées ({len(triggers[str(server_id)].keys())}) :", description="- " + content, color=0xBFFF00)
+                return await ctx.send(embed=embed)
+            else:
+                embed = discord.Embed(title="Il n'y à aucunes réactions customisées.", color=0xBFFF00)
+        else:
+            return await ctx.send(f":x: {ctx.message.author.name}, vous n'avez pas la permission **Administrateur** !")
+
+    if not args:
+        embed = discord.Embed(title=None, description="Veuillez préciser un déclencheur et une réponse : `+trigger [\"déclancheur\" / liste / remove] [\"réponse\" / url]`", color=0xBFFF00)
+        return await ctx.send(embed=embed)
+
+    with open("extra/triggers.json", "r", encoding="utf-8") as file:
+        triggers = json.load(file)
+
+    if any(x in args.lower() for x in ["list", "liste", "remove", "delete"]):
+        if args.lower() == "list" or args.lower() == "liste":
+            if any(x == str(server_id) for x in triggers.keys()) and triggers[str(server_id)]:
+                content = "\n- ".join([x for x in triggers[str(server_id)].keys()])
+                embed = discord.Embed(title=f"Réactions customisées ({len(triggers[str(server_id)].keys())}) :", description="- " + content, color=0xBFFF00)
+                return await ctx.send(embed=embed)
+            else:
+                embed = discord.Embed(title="Il n'y à aucunes réactions customisées.", color=0xBFFF00)
+                return await ctx.send(embed=embed)
+        elif "remove" in args.lower() or "delete" in args.lower():
+            if len(args.split()) == 1:
+                embed = discord.Embed(title="Veuillez préciser un déclencheur à supprimer : `+trigger [remove / delete] [\"déclancheur\"]`", color=0xBFFF00)
+                return await ctx.send(embed=embed)
+            if '"' in args:
+                remove = re.findall(r'["\'](.*?)["\']', args)[-1].lower()
+            else:
+                remove = args.split(" ")[-1].lower()
+            if any(x.lower() == remove for x in triggers[str(server_id)].keys()):
+                del triggers[str(server_id)][remove]
+                with open("extra/triggers.json", "w", encoding="utf-8") as file:
+                    json.dump(triggers, file, indent=4)
+                embed = discord.Embed(title="Réaction supprimée :", description=f"**{remove}**", color=0xBFFF00)
+            else:
+                embed = discord.Embed(title="Aucune réaction ne correspond à celle choisie.", color=0xBFFF00)
+            return await ctx.send(embed=embed)
+    if not '"' in args and not "'" in args:
+        if len(args.split()) == 2:
+            trigger = args.split(" ")[0]
+            response = args.split(" ")[1]
+        elif len(args.split()) < 2:
+            embed = discord.Embed(title="Il y à pas assez d'arguments pour créer la réaction, ajoutez-en entre des guillements pour délimiter votre message.", color=0xBFFF00)
+            return await ctx.send(embed=embed)
+        else:
+            embed = discord.Embed(title="Il y à trop d'arguments pour créer la réaction, mettez des guillements pour délimiter votre message.", color=0xBFFF00)
+            return await ctx.send(embed=embed)
+    else:
+        if len(re.findall(r'["\'](.*?)["\']', args)) == 2:
+            trigger = re.findall(r'["\'](.*?)["\']', args)[0].lower()
+            if "http://" in args or "https://" in args:
+                response = args.split(" ")[-1].replace('"', "").replace("'", "")
+            else:
+                response = re.findall(r'["\'](.*?)["\']', args)[1]
+        elif len(re.findall(r'["\'](.*?)["\']', args)) < 2:
+            embed = discord.Embed(title="Il y à pas assez d'arguments pour créer la réaction, ajoutez-en entre des guillements pour délimiter votre message.", color=0xBFFF00)
+            return await ctx.send(embed=embed)
+        else:
+            embed = discord.Embed(title="Il y à trop d'arguments pour créer la réaction, mettez des guillements pour délimiter votre message.", color=0xBFFF00)
+            return await ctx.send(embed=embed)
+    if not any(x == str(server_id) for x in triggers.keys()):
+        triggers[str(server_id)] = {trigger: response}
+    else:
+        if trigger in triggers[str(server_id)].keys():
+            embed = discord.Embed(title="Il y a déjà un déclencheur pour ce message. Supprimez le puis refaites la commande.", color=0xBFFF00)
+            return await ctx.send(embed=embed)
+    triggers[str(server_id)][trigger] = response
+    with open("extra/triggers.json", "w", encoding="utf-8") as file:
+        json.dump(triggers, file, indent=4)
+    embed = discord.Embed(title="Nouvelle réaction customisée :", color=0xBFFF00)
+    embed.add_field(name="Déclencheur", value=trigger, inline=True)
+    embed.add_field(name="Réponse", value=response, inline=True)
+    return await ctx.send(embed=embed)
 
 #----------------------------- ADMIN COMMANDS -----------------------------#
 
@@ -1298,9 +1408,8 @@ async def idea(ctx, *, args=None):
         elif cmd_recieved == "bug":
             return await ctx.send("Merci de préciser un bug.")
     idea_infos = str(ctx.message.author) + sep + cmd_recieved + sep
-    file = open("feedback.txt", "a", encoding="utf-8")
-    file.write(idea_infos + args + "\n")
-    file.close()
+    with open("feedback.txt", "a", encoding="utf-8") as file:
+        file.write(idea_infos + args + "\n")
     return await ctx.send("Merci de contribuer à l'amélioration du bot !")
 
 @client.command(pass_context=True, aliases=["logs", "showlog", "changelog", "whatsnew", "whatnew"])
@@ -1312,14 +1421,13 @@ async def showlogs(ctx):
         await async_data(server_id, server_name)
 
     embed = discord.Embed(title="Logs de mise à jour du bot :", url="https://quentium.fr/discord/", color=0xFFFF00)
-    file = open("extra/logs.txt", "r", encoding="utf-8")
     counter = 1
-    for line in file:
-        line_time = line.split(sep, 999)[0]
-        line_content = line.split(sep, 999)[1]
-        embed.add_field(name="#" + str(counter) + " / " + line_time, value=line_content.replace("..",".\n"), inline=True)
-        counter += 1
-    file.close()
+    with open("extra/logs.txt", "r", encoding="utf-8") as file:
+        for line in file:
+            line_time = line.split(sep, 999)[0]
+            line_content = line.split(sep, 999)[1]
+            embed.add_field(name="#" + str(counter) + " / " + line_time, value=line_content.replace("..",".\n"), inline=True)
+            counter += 1
     embed.set_footer(text="Les logs sont publiées dès qu'une nouvelle mise à jour importante du bot a lieu.", icon_url="https://quentium.fr/+img/logoBot.png")
     return await ctx.send(embed=embed)
 
@@ -1339,14 +1447,13 @@ async def showideas(ctx):
             await asyncio.sleep(5)
             await ctx.message.delete()
             return await tmp.delete()
-        file = open("feedback.txt", "r", encoding="utf-8")
         content = ""
         if not os.path.isfile("feedback.txt"):
             content += "Aucunes"
         else:
-            for line in file:
-                content += line
-        file.close()
+            with open("feedback.txt", "r", encoding="utf-8") as file:
+                for line in file:
+                    content += line
         embed = discord.Embed(title="Idées :", description=content)
         tmp = await ctx.send(embed=embed)
         await asyncio.sleep(5)
@@ -1368,9 +1475,8 @@ async def addlogs(ctx, *, args=None):
             return await ctx.message.delete()
         else:
             infos = str(datetime.now().strftime("%d.%m.%Y - %H:%M"))
-            file = open("extra/logs.txt", "a", encoding="utf-8")
-            file.write(infos + sep + args + "\n")
-            file.close()
+            with open("extra/logs.txt", "a", encoding="utf-8") as file:
+                file.write(infos + sep + args + "\n")
             await asyncio.sleep(5)
             return await ctx.message.delete()
     else:
