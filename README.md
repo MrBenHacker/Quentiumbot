@@ -13,3 +13,6 @@ Visit [My Website](https://quentium.fr/en/discord/index.html) for more informati
 * You're able to manage members with autorole, role commands.
 * You can moderate your server with a few commands clear, kick, ban...
 * If you want some custom commands, it's possible too! And, feel free to suggest some features to add to the bot or report a bug using idea, bug command :)
+
+
+I'm working on a new website with a friend, take a look! https://quentiumbot.alwaysdata.net
