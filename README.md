@@ -15,4 +15,4 @@ Visit [My Website](https://quentium.fr/en/discord/index.html) for more informati
 * If you want some custom commands, it's possible too! And, feel free to suggest some features to add to the bot or report a bug using idea, bug command :)
 
 
-I'm working on a new website with a friend, take a look! https://quentiumbot.alwaysdata.net
+I'm working on a new website with a friend, take a look! https://quentium.fr/discord
