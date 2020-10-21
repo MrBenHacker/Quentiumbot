@@ -1,9 +1,12 @@
 # Quentiumbot Project
+
+# Please visit the new rewrite [here](https://github.com/QuentiumYT/QuentiumBot)!
+
 Source code for QuentiumBot (messy because it's a single file ^^)
 
 Please don't run this bot with the exact same copy, just learn yourself and take inspiration from it.
 
-Visit [My Website](https://quentium.fr/en/discord/index.html) for more informations or [DiscordBots](https://discordbots.org/bot/347405743235792908) to support my bot by upvoting ;)
+Visit [My Website](https://bot.quentium.fr) for more informations or [DiscordBots](https://top.org/bot/347405743235792908) to support my bot by upvoting ;)
 
 ### Features
 
